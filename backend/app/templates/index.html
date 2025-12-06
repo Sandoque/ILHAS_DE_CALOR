@@ -1,38 +1,63 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 {% block content %}
-<section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-    <div class="bg-white p-4 rounded shadow">
-        <p class="text-sm text-slate-500">Temp. média</p>
-        <p class="text-2xl font-semibold">{{ overview.resumo.temp_media }} ºC</p>
+<section class="mb-10">
+  <div class="bg-gradient-to-r from-emerald-500 to-amber-500 text-white rounded-3xl p-8 shadow-xl flex flex-col gap-4 animate-fade-in">
+    <p class="text-sm uppercase tracking-[0.2em]">Dashboard Estadual</p>
+    <h1 class="text-3xl sm:text-4xl font-bold">Observatório Estadual de Ilhas de Calor – PE</h1>
+    <p class="text-lg text-emerald-50 max-w-2xl">Monitoramento climático e análise de risco para gestores públicos</p>
+    <div class="flex flex-wrap gap-3">
+      <a href="/simulator" class="btn-primary">Abrir simulador</a>
+      <a href="#heatmap" class="btn-primary bg-white text-emerald-600 hover:text-emerald-700">Ver mapa</a>
     </div>
-    <div class="bg-white p-4 rounded shadow">
-        <p class="text-sm text-slate-500">Alertas de calor</p>
-        <p class="text-2xl font-semibold">{{ overview.resumo.alertas_calor }}</p>
-    </div>
-    <div class="bg-white p-4 rounded shadow">
-        <p class="text-sm text-slate-500">Estações monitoradas</p>
-        <p class="text-2xl font-semibold">{{ overview.resumo.estacoes_monitoradas }}</p>
-    </div>
+  </div>
 </section>
-<section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <div class="bg-white p-4 rounded shadow lg:col-span-2">
-        <h2 class="text-lg font-semibold mb-2">Mapa / Visão Geral</h2>
-        <div id="mapa-estado" class="h-80 bg-slate-100 rounded"></div>
-    </div>
-    <div class="bg-white p-4 rounded shadow">
-        <h2 class="text-lg font-semibold mb-2">Ranking de cidades</h2>
-        <ul class="divide-y divide-slate-200">
-            {% for cidade in overview.ranking %}
-            <li class="py-2 flex items-center justify-between">
-                <span class="font-medium">{{ cidade.nome }}</span>
-                <span class="text-emerald-700 font-semibold">{{ '%.0f'|format(cidade.risco * 100) }}%</span>
-            </li>
-            {% endfor %}
-        </ul>
-    </div>
+
+<section class="grid gap-4 md:grid-cols-3 mb-10">
+  <div hx-get="/api/analytics/hottest?limit=1" hx-trigger="load" hx-swap="none" data-metric="max-temp" class="card">
+    <div id="metric-hot">{% include 'components/card_metric.html' with context %}</div>
+  </div>
+  <div hx-get="/api/analytics/hottest?limit=1" hx-trigger="load" hx-swap="none" data-metric="hottest-station" class="card">
+    <div id="metric-station">{% include 'components/card_metric.html' with context %}</div>
+  </div>
+  <div hx-get="/api/analytics/alerts?threshold=0" hx-trigger="load" hx-swap="none" data-metric="amplitude" class="card">
+    <div id="metric-amplitude">{% include 'components/card_metric.html' with context %}</div>
+  </div>
 </section>
-<div class="bg-white p-4 rounded shadow mt-6">
-    <h2 class="text-lg font-semibold mb-2">Top 5 cidades - ECharts</h2>
-    <div id="chart-cidades" class="h-72"></div>
-</div>
+
+<section id="heatmap" class="mb-10">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="section-title">Mapa de calor estadual</h2>
+    <input type="date" id="heatmap-date" class="border rounded-lg px-3 py-2 text-sm" />
+  </div>
+  <div class="card chart-container" id="heatmap-chart">
+    {% include 'components/chart_loader.html' %}
+  </div>
+</section>
+
+<section class="mb-10">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="section-title">Ranking de estações mais quentes</h2>
+  </div>
+  <div class="card overflow-hidden">
+    <div hx-get="/api/analytics/hottest" hx-trigger="load" hx-swap="none" id="ranking-loader" class="animate-pulse text-sm text-slate-500 p-4">Carregando ranking...</div>
+    <div id="ranking-chart" class="h-80"></div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const dateInput = document.getElementById('heatmap-date');
+    const today = new Date().toISOString().split('T')[0];
+    dateInput.value = today;
+    const container = document.getElementById('heatmap-chart');
+    renderHeatmap(container, `/api/analytics/heatmap/${today}`);
+
+    dateInput.addEventListener('change', () => {
+      const date = dateInput.value;
+      renderHeatmap(container, `/api/analytics/heatmap/${date}`);
+    });
+  });
+</script>
 {% endblock %}

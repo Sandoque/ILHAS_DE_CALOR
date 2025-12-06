@@ -1,22 +1,21 @@
+"""Web pages for basic views."""
+from __future__ import annotations
+
 from flask import Blueprint, render_template
-from ..services.climate_service import get_mock_state_overview, get_mock_city_detail
 
-main_bp = Blueprint('main_bp', __name__)
+bp = Blueprint("main", __name__)
 
 
-@main_bp.route('/')
+@bp.route("/")
 def index():
-    overview = get_mock_state_overview()
-    return render_template('index.html', overview=overview)
+    return render_template("index.html")
 
 
-@main_bp.route('/cidade/<nome_cidade>')
-def city_detail(nome_cidade: str):
-    city_data = get_mock_city_detail(nome_cidade)
-    return render_template('city_detail.html', city=city_data)
+@bp.route("/city/<code>")
+def city_detail(code: str):
+    return render_template("city_detail.html", station_code=code)
 
 
-@main_bp.route('/simulador/<nome_cidade>')
-def simulator(nome_cidade: str):
-    city_data = get_mock_city_detail(nome_cidade)
-    return render_template('simulator.html', city=city_data)
+@bp.route("/simulator")
+def simulator():
+    return render_template("simulator.html")

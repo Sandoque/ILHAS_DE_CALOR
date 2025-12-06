@@ -1,54 +1,101 @@
-from datetime import datetime, timedelta
-from typing import Dict, List
+"""Business logic for climate data access."""
+from __future__ import annotations
+
+from datetime import date, datetime
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import func
+
+from ..extensions import db
+from ..models import ClimateHourly, ClimateHourlySchema
+
+schema_many = ClimateHourlySchema(many=True)
 
 
-CITIES = [
-    {"nome": "Recife", "risco": 0.82},
-    {"nome": "Olinda", "risco": 0.74},
-    {"nome": "Caruaru", "risco": 0.63},
-    {"nome": "Petrolina", "risco": 0.71},
-    {"nome": "Garanhuns", "risco": 0.52},
+def _parse_datetime(value: str | datetime | None) -> Optional[datetime]:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(value)
+    except Exception:
+        return None
+
+
+def get_climate_by_station(station_code: str, start: str | datetime | None, end: str | datetime | None) -> List[dict]:
+    """Return climate rows for a station between optional start/end datetimes."""
+    query = ClimateHourly.query.filter(ClimateHourly.station_code == station_code)
+    start_dt = _parse_datetime(start)
+    end_dt = _parse_datetime(end)
+    if start_dt:
+        query = query.filter(ClimateHourly.datetime_utc >= start_dt)
+    if end_dt:
+        query = query.filter(ClimateHourly.datetime_utc <= end_dt)
+    results = query.order_by(ClimateHourly.datetime_utc.desc()).limit(5000).all()
+    return schema_many.dump(results)
+
+
+def get_daily_summary(station_code: str, limit: int = 30) -> List[Dict[str, Any]]:
+    """Aggregate daily metrics for a station."""
+    aggregation = (
+        db.session.query(
+            func.date(ClimateHourly.datetime_utc).label("date"),
+            func.max(ClimateHourly.temperature).label("max_temp"),
+            func.min(ClimateHourly.temperature).label("min_temp"),
+            func.avg(ClimateHourly.temperature).label("avg_temp"),
+            func.max(ClimateHourly.heat_index).label("heat_index_max"),
+            func.max(ClimateHourly.thermal_amplitude).label("thermal_amplitude"),
+            func.sum(ClimateHourly.precipitation).label("precipitation_total"),
+        )
+        .filter(ClimateHourly.station_code == station_code)
+        .group_by(func.date(ClimateHourly.datetime_utc))
+        .order_by(func.date(ClimateHourly.datetime_utc).desc())
+        .limit(limit)
+    )
+    rows = aggregation.all()
+    return [dict(row._mapping) for row in rows]
+
+
+def list_years_available() -> List[int]:
+    """List distinct years available in the climate table."""
+    years = (
+        db.session.query(func.extract("year", ClimateHourly.datetime_utc))
+        .distinct()
+        .order_by(func.extract("year", ClimateHourly.datetime_utc))
+        .all()
+    )
+    return [int(y[0]) for y in years if y[0] is not None]
+
+
+def compute_trends(station_code: str) -> Dict[str, Any]:
+    """Compute basic trend metrics for a station."""
+    stats = (
+        db.session.query(
+            func.avg(ClimateHourly.temperature).label("avg_temp"),
+            func.max(ClimateHourly.temperature).label("max_temp"),
+            func.min(ClimateHourly.temperature).label("min_temp"),
+            func.avg(ClimateHourly.humidity).label("avg_humidity"),
+            func.avg(ClimateHourly.wind_speed).label("avg_wind_speed"),
+        )
+        .filter(ClimateHourly.station_code == station_code)
+        .one_or_none()
+    )
+    if not stats:
+        return {}
+    mapping = stats._mapping
+    return {
+        "avg_temp": mapping.get("avg_temp"),
+        "max_temp": mapping.get("max_temp"),
+        "min_temp": mapping.get("min_temp"),
+        "avg_humidity": mapping.get("avg_humidity"),
+        "avg_wind_speed": mapping.get("avg_wind_speed"),
+    }
+
+
+__all__ = [
+    "get_climate_by_station",
+    "get_daily_summary",
+    "list_years_available",
+    "compute_trends",
 ]
-
-
-def get_mock_state_overview() -> Dict:
-    """Return mocked overview data for the state ranking and highlights."""
-    return {
-        "resumo": {
-            "temp_media": 29.3,
-            "alertas_calor": 12,
-            "estacoes_monitoradas": 35,
-        },
-        "ranking": CITIES,
-    }
-
-
-def get_mock_city_detail(nome_cidade: str) -> Dict:
-    """Return mocked detail data for a given city."""
-    base = next((c for c in CITIES if c["nome"].lower() == nome_cidade.lower()), None)
-    base_name = base["nome"] if base else nome_cidade
-    return {
-        "nome": base_name,
-        "temp_media": 28.7,
-        "umidade_media": 68,
-        "pontos_quentes": 5,
-        "series": get_mock_city_series(base_name),
-        "insights": [
-            "Areas centrais apresentam maior retencao de calor",
-            "Aumento de vegetacao pode reduzir picos em ate 1.2C",
-            "Periodo noturno mantem temperatura elevada em zonas urbanizadas",
-        ],
-    }
-
-
-def get_mock_city_series(nome_cidade: str) -> List[Dict]:
-    """Return mocked time series for a city."""
-    now = datetime.utcnow()
-    series = []
-    for i in range(7):
-        point_time = now - timedelta(days=6 - i)
-        series.append({
-            "data": point_time.strftime("%Y-%m-%d"),
-            "temp": 26 + i * 0.5,
-        })
-    return {"cidade": nome_cidade, "serie": series}

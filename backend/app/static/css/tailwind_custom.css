@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.btn-primary {
+  @apply inline-flex items-center justify-center px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold shadow hover:bg-emerald-700 transition;
+}
+
+.card {
+  @apply bg-white rounded-2xl shadow-sm border border-slate-100 p-4;
+}
+
+.section-title {
+  @apply text-xl font-semibold text-slate-800;
+}
+
+.metric-value {
+  @apply text-2xl font-bold text-slate-900;
+}
+
+.metric-label {
+  @apply text-sm uppercase tracking-wide text-slate-500;
+}
+
+.chart-container {
+  @apply h-96 w-full;
+}
