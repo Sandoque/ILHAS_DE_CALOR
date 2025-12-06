@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="bg-white p-4 rounded shadow mb-4">
+    <h2 class="text-xl font-semibold">{{ city.nome }}</h2>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+        <div>
+            <p class="text-sm text-slate-500">Temp. media</p>
+            <p class="text-2xl font-semibold">{{ city.temp_media }} C</p>
+        </div>
+        <div>
+            <p class="text-sm text-slate-500">Umidade media</p>
+            <p class="text-2xl font-semibold">{{ city.umidade_media }}%</p>
+        </div>
+        <div>
+            <p class="text-sm text-slate-500">Pontos quentes</p>
+            <p class="text-2xl font-semibold">{{ city.pontos_quentes }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-slate-500">Risco</p>
+            <p class="text-2xl font-semibold">72%</p>
+        </div>
+    </div>
+</div>
+<div class="bg-white p-4 rounded shadow mb-4">
+    <h3 class="text-lg font-semibold mb-2">Serie historica</h3>
+    <div id="chart-serie" class="h-72"></div>
+</div>
+<div class="bg-white p-4 rounded shadow">
+    <h3 class="text-lg font-semibold mb-2">Insights</h3>
+    <ul class="list-disc list-inside text-slate-700">
+        {% for insight in city.insights %}
+        <li>{{ insight }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+    (function() {
+        const el = document.getElementById('chart-serie');
+        if (!el || !window.echarts) return;
+        const chart = echarts.init(el);
+        chart.setOption({
+            tooltip: { trigger: 'axis' },
+            xAxis: { type: 'category', data: {{ city.series.serie | map(attribute='data') | list | tojson }} },
+            yAxis: { type: 'value', name: 'Temp (C)' },
+            series: [{
+                data: {{ city.series.serie | map(attribute='temp') | list | tojson }},
+                type: 'line',
+                smooth: true,
+                areaStyle: { opacity: 0.1 }
+            }]
+        });
+    })();
+</script>
+{% endblock %}
