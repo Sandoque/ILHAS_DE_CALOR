@@ -242,4 +242,88 @@ LEFT JOIN aux_cobertura_vegetal_pe cv
     ON cv.id_cidade = r.id_cidade
    AND cv.ano       = r.ano;
 
+-- ============================================================================
+-- STATIONS (Tabela usada pelo ETL INMET)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.stations (
+    station_code TEXT PRIMARY KEY,
+    name TEXT,
+    state TEXT,
+    municipality TEXT,
+    latitude FLOAT,
+    longitude FLOAT,
+    altitude FLOAT,
+    geocode BIGINT
+);
+
+-- ============================================================================
+-- TABELA CLIMATE_HOURLY (BRONZE OFICIAL DO ETL INMET)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.climate_hourly (
+    id BIGSERIAL PRIMARY KEY,
+
+    datetime_utc TIMESTAMP NOT NULL,
+    date DATE GENERATED ALWAYS AS (datetime_utc::date) STORED,
+    hour_utc TEXT,
+
+    station_code TEXT REFERENCES public.stations(station_code),
+
+    temperature FLOAT,
+    humidity FLOAT,
+    wind_speed FLOAT,
+    radiation FLOAT,
+    precipitation FLOAT,
+
+    apparent_temperature FLOAT,
+    heat_index FLOAT,
+    thermal_amplitude FLOAT,
+    rolling_heat_7d FLOAT,
+
+    latitude FLOAT,
+    longitude FLOAT,
+    altitude FLOAT,
+
+    municipality TEXT,
+    municipality_geocode BIGINT
+);
+
+CREATE INDEX IF NOT EXISTS idx_climate_station_date
+    ON public.climate_hourly (station_code, date);
+
+CREATE INDEX IF NOT EXISTS idx_climate_date
+    ON public.climate_hourly (date);
+
+-- ============================================================================
+-- MAPBIOMAS COVERAGE (NORMALIZADO)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.mapbiomas_coverage (
+    id BIGSERIAL PRIMARY KEY,
+
+    geocode BIGINT NOT NULL,
+    municipality TEXT,
+    state TEXT,
+
+    class TEXT,
+    class_level_0 TEXT,
+    class_level_1 TEXT,
+    class_level_2 TEXT,
+    class_level_3 TEXT,
+    class_level_4 TEXT,
+
+    year SMALLINT NOT NULL,
+    area NUMERIC(20,4),
+
+    UNIQUE (geocode, class, year)
+);
+
+CREATE INDEX IF NOT EXISTS idx_mapb_year
+    ON public.mapbiomas_coverage (year);
+
+CREATE INDEX IF NOT EXISTS idx_mapb_geocode
+    ON public.mapbiomas_coverage (geocode);
+
+
 COMMIT;

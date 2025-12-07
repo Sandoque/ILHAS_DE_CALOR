@@ -11,6 +11,8 @@ services:
       - "5433:5432"
     volumes:
       - pgdata_ilhas:/var/lib/postgresql/data
+      - ./db:/app/db
+      - ./postgres-init:/docker-entrypoint-initdb.d
 
   web:
     build:
@@ -24,6 +26,8 @@ services:
       SECRET_KEY: change-me-in-prod
     ports:
       - "8000:8000"
+    volumes:
+      - ./data:/app/data
     # Uncomment the following volume for live-reload development
     # volumes:
     #   - ./backend:/app

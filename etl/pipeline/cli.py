@@ -24,6 +24,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     inc_parser = subparsers.add_parser("run-inc", help="Run incremental ETL")
     inc_parser.add_argument("--year", type=int, help="Specific year to process")
+
+    subparsers.add_parser("run-mapbiomas", help="Run MapBiomas land cover ETL")
     return parser
 
 
@@ -35,6 +37,10 @@ def main() -> None:
         run_full()
     elif args.command == "run-inc":
         run_incremental(args.year)
+    elif args.command == "run-mapbiomas":
+        from etl.mapbiomas.run_mapbiomas_pipeline import run_mapbiomas
+
+        run_mapbiomas()
     else:  # pragma: no cover
         parser.print_help()
 
