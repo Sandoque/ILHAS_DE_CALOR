@@ -1,0 +1,167 @@
+<!-- Partial template for city charts (loaded via HTMX) -->
+
+<!-- Gráfico 1: Série Temporal de Temperatura -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-900">Temperatura (℃)</h3>
+        <p class="text-sm text-gray-600">Séries de temperatura: mínima, média e máxima</p>
+    </div>
+    <div class="card-body">
+        <div id="chart-temperatura" class="chart-container"></div>
+    </div>
+</div>
+
+<!-- Gráfico 2: Índice de Risco de Calor -->
+<div class="card mt-6">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-900">Índice de Risco de Calor</h3>
+        <p class="text-sm text-gray-600">Classificação diária do risco</p>
+    </div>
+    <div class="card-body">
+        <div id="chart-risco" class="chart-container"></div>
+    </div>
+</div>
+
+<!-- Gráfico 3: Heatmap dos Últimos 7 Dias -->
+<div class="card mt-6">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-900">Heatmap Térmico (7 dias)</h3>
+        <p class="text-sm text-gray-600">Intensidade de calor por dia</p>
+    </div>
+    <div class="card-body">
+        <div id="chart-heatmap" class="chart-container"></div>
+    </div>
+</div>
+
+<script>
+const CIDADE_ID = {{ cidade_id }};
+const RANGE = {{ range }};
+
+document.addEventListener('DOMContentLoaded', () => {
+    initializeCharts(CIDADE_ID, RANGE);
+});
+
+function initializeCharts(cidadeId, range) {
+    loadTemperaturaChart(cidadeId, range);
+    loadRiscoChart(cidadeId, range);
+    loadHeatmapChart(cidadeId);
+}
+
+function loadTemperaturaChart(cidadeId, range) {
+    const url = `/api/gold/${cidadeId}/serie?limit=${range * 30}`;
+    
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.data.data) {
+                const series = data.data.data;
+                const dates = series.map(s => s.data);
+                const tempMin = series.map(s => s.temp_min || null);
+                const tempMedia = series.map(s => s.temp_media || null);
+                const tempMax = series.map(s => s.temp_max || null);
+                
+                const option = {
+                    tooltip: { trigger: 'axis' },
+                    legend: { data: ['Mínima', 'Média', 'Máxima'] },
+                    xAxis: { type: 'category', data: dates },
+                    yAxis: { type: 'value', name: '℃' },
+                    series: [
+                        { name: 'Mínima', data: tempMin, type: 'line', smooth: true, lineStyle: { color: '#3b82f6' } },
+                        { name: 'Média', data: tempMedia, type: 'line', smooth: true, lineStyle: { color: '#f97316' } },
+                        { name: 'Máxima', data: tempMax, type: 'line', smooth: true, lineStyle: { color: '#ef4444' } }
+                    ]
+                };
+                
+                const chart = echarts.init(document.getElementById('chart-temperatura'));
+                chart.setOption(option);
+                window.addEventListener('resize', () => chart.resize());
+            }
+        })
+        .catch(err => console.error('Erro ao carregar gráfico de temperatura:', err));
+}
+
+function loadRiscoChart(cidadeId, range) {
+    const url = `/api/gold/${cidadeId}/serie?limit=${range * 30}`;
+    
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.data.data) {
+                const series = data.data.data;
+                const dates = series.map(s => s.data);
+                const risks = series.map(s => {
+                    const risco = s.risco_calor || 'Desconhecido';
+                    const colors = {
+                        'Baixo': '#10b981',
+                        'Moderado': '#3b82f6',
+                        'Alto': '#eab308',
+                        'Muito Alto': '#f97316',
+                        'Extremo': '#ef4444'
+                    };
+                    return { value: risco, itemStyle: { color: colors[risco] || '#999' } };
+                });
+                
+                const option = {
+                    tooltip: { trigger: 'axis' },
+                    xAxis: { type: 'category', data: dates },
+                    yAxis: { type: 'value' },
+                    series: [
+                        { 
+                            name: 'Risco',
+                            data: risks.map((r, i) => ({ value: i, name: r.value, itemStyle: r.itemStyle })),
+                            type: 'bar',
+                            itemStyle: { color: (params) => risks[params.dataIndex].itemStyle.color }
+                        }
+                    ]
+                };
+                
+                const chart = echarts.init(document.getElementById('chart-risco'));
+                chart.setOption(option);
+                window.addEventListener('resize', () => chart.resize());
+            }
+        })
+        .catch(err => console.error('Erro ao carregar gráfico de risco:', err));
+}
+
+function loadHeatmapChart(cidadeId) {
+    const url = `/api/gold/${cidadeId}/diario`;
+    
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.data) {
+                const records = data.data.slice(0, 7);
+                const heatmapData = [];
+                
+                records.forEach((r, dayIdx) => {
+                    const tempMin = r.temp_min || 0;
+                    const tempMedia = r.temp_media || 0;
+                    const tempMax = r.temp_max || 0;
+                    
+                    heatmapData.push([dayIdx, 0, tempMin]);
+                    heatmapData.push([dayIdx, 1, tempMedia]);
+                    heatmapData.push([dayIdx, 2, tempMax]);
+                });
+                
+                const option = {
+                    tooltip: { trigger: 'item' },
+                    xAxis: { type: 'category', data: records.map(r => r.data) },
+                    yAxis: { type: 'category', data: ['Mínima', 'Média', 'Máxima'] },
+                    visualMap: { min: 20, max: 40, inRange: { color: ['#3b82f6', '#eab308', '#ef4444'] } },
+                    series: [
+                        {
+                            data: heatmapData,
+                            type: 'heatmap',
+                            label: { show: true }
+                        }
+                    ]
+                };
+                
+                const chart = echarts.init(document.getElementById('chart-heatmap'));
+                chart.setOption(option);
+                window.addEventListener('resize', () => chart.resize());
+            }
+        })
+        .catch(err => console.error('Erro ao carregar heatmap:', err));
+}
+</script>
