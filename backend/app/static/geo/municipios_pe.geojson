@@ -1,0 +1,101 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "codigo": 1,
+        "nome": "Recife"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-34.9277, -8.0476], [-34.9176, -8.0476], [-34.9176, -8.0576], [-34.9277, -8.0576], [-34.9277, -8.0476]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "codigo": 2,
+        "nome": "Olinda"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-34.8544, -8.0084], [-34.8443, -8.0084], [-34.8443, -8.0184], [-34.8544, -8.0184], [-34.8544, -8.0084]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "codigo": 3,
+        "nome": "Jaboatão dos Guararapes"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-34.8994, -8.1394], [-34.8893, -8.1394], [-34.8893, -8.1494], [-34.8994, -8.1494], [-34.8994, -8.1394]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "codigo": 4,
+        "nome": "Caruaru"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-35.9765, -8.2768], [-35.9664, -8.2768], [-35.9664, -8.2868], [-35.9765, -8.2868], [-35.9765, -8.2768]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 5,
+        "codigo": 5,
+        "nome": "Petrolina"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-40.5038, -9.3894], [-40.4937, -9.3894], [-40.4937, -9.3994], [-40.5038, -9.3994], [-40.5038, -9.3894]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 6,
+        "codigo": 6,
+        "nome": "Garanhuns"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-36.4883, -8.8793], [-36.4782, -8.8793], [-36.4782, -8.8893], [-36.4883, -8.8893], [-36.4883, -8.8793]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 7,
+        "codigo": 7,
+        "nome": "Vitória de Santo Antão"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-35.2633, -8.1147], [-35.2532, -8.1147], [-35.2532, -8.1247], [-35.2633, -8.1247], [-35.2633, -8.1147]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 8,
+        "codigo": 8,
+        "nome": "Paulista"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-34.8250, -7.9334], [-34.8149, -7.9334], [-34.8149, -7.9434], [-34.8250, -7.9434], [-34.8250, -7.9334]]]
+      }
+    }
+  ]
+}

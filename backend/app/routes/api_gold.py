@@ -316,4 +316,85 @@ def get_city_summary(cidade_id: int):
         return error(f"Failed to retrieve city summary: {str(e)}", status=500)
 
 
+@api_gold.route("/mapa", methods=["GET"])
+def get_map_data():
+    """
+    Get heat risk data for map visualization by municipality.
+    Returns latest risk classification for each city.
+    
+    Returns:
+        {
+            "success": true,
+            "data": [
+                {
+                    "id_cidade": 1,
+                    "nome_cidade": "Recife",
+                    "uf": "PE",
+                    "risco": 72,
+                    "categoria": "Alto",
+                    "heat_index_avg": 35.2
+                },
+                ...
+            ]
+        }
+    """
+    try:
+        from sqlalchemy import func, desc, and_
+        
+        # Get latest data for each city
+        latest_records = (
+            db.session.query(
+                GoldClimaPeDiario.id_cidade,
+                GoldClimaPeDiario.nome_cidade,
+                GoldClimaPeDiario.uf,
+                GoldClimaPeDiario.risco_calor,
+                func.avg(GoldClimaPeDiario.heat_index_max).label('heat_index_avg'),
+                func.max(GoldClimaPeDiario.data).label('latest_date')
+            )
+            .filter(GoldClimaPeDiario.uf == 'PE')
+            .group_by(
+                GoldClimaPeDiario.id_cidade,
+                GoldClimaPeDiario.nome_cidade,
+                GoldClimaPeDiario.uf,
+                GoldClimaPeDiario.risco_calor
+            )
+            .order_by(desc(GoldClimaPeDiario.id_cidade))
+            .all()
+        )
+        
+        if not latest_records:
+            logger.warning("No risk data found for map")
+            return success([])
+        
+        # Build response with risco score (0-100)
+        municipios = []
+        for record in latest_records:
+            # Map category to risk score
+            risk_scores = {
+                'Baixo': 20,
+                'Moderado': 40,
+                'Alto': 60,
+                'Muito Alto': 80,
+                'Extremo': 100
+            }
+            risco_score = risk_scores.get(record.risco_calor, 50)
+            
+            municipios.append({
+                'id_cidade': record.id_cidade,
+                'nome_cidade': record.nome_cidade,
+                'uf': record.uf,
+                'risco': risco_score,
+                'categoria': record.risco_calor,
+                'heat_index_avg': round(float(record.heat_index_avg) if record.heat_index_avg else 0, 1),
+                'data_atualizacao': record.latest_date.isoformat() if record.latest_date else None
+            })
+        
+        logger.info(f"Retrieved map data for {len(municipios)} municipalities")
+        return success(municipios)
+    
+    except Exception as e:
+        logger.exception(f"Error retrieving map risk data: {str(e)}")
+        return error(f"Failed to retrieve map data: {str(e)}", status=500)
+
+
 __all__ = ["api_gold"]

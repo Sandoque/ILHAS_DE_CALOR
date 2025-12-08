@@ -1,0 +1,425 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}Mapa - Ilhas de Calor{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" />
+<style>
+    #map {
+        width: 100%;
+        height: 600px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .legend {
+        background: white;
+        padding: 12px;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        font-size: 13px;
+        line-height: 18px;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 6px;
+    }
+
+    .legend-color {
+        width: 20px;
+        height: 20px;
+        margin-right: 8px;
+        border: 1px solid #555;
+        border-radius: 2px;
+    }
+
+    .leaflet-popup-content {
+        font-family: 'Inter', sans-serif;
+        font-size: 14px;
+    }
+
+    .popup-titulo {
+        font-weight: 600;
+        margin-bottom: 8px;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 4px;
+    }
+
+    .popup-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 4px;
+    }
+
+    .popup-label {
+        color: #666;
+    }
+
+    .popup-valor {
+        font-weight: 500;
+        color: #333;
+    }
+
+    .popup-botao {
+        margin-top: 10px;
+        padding: 6px 12px;
+        background-color: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: background-color 0.2s;
+    }
+
+    .popup-botao:hover {
+        background-color: #2563eb;
+    }
+
+    .map-container {
+        margin-bottom: 20px;
+    }
+
+    .map-controls {
+        margin-bottom: 20px;
+        padding: 16px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .map-loading {
+        text-align: center;
+        padding: 20px;
+        color: #666;
+    }
+
+    .map-error {
+        padding: 12px;
+        background-color: #fee2e2;
+        color: #991b1b;
+        border-radius: 4px;
+        margin-bottom: 12px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Header -->
+    <div>
+        <h1 class="text-4xl font-bold text-gray-900">Mapa de Riscos</h1>
+        <p class="text-lg text-gray-600 mt-2">Visualize os riscos de ilhas de calor em Pernambuco por município</p>
+    </div>
+
+    <!-- Controls -->
+    <div class="map-controls">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-600">Total de municípios carregados:</p>
+                <p id="municipios-count" class="text-2xl font-bold text-gray-900">--</p>
+            </div>
+            <button onclick="resetMap()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">
+                Resetar Mapa
+            </button>
+        </div>
+    </div>
+
+    <!-- Error container -->
+    <div id="map-error-container"></div>
+
+    <!-- Map -->
+    <div class="map-container">
+        <div id="map">
+            <div class="map-loading">
+                <p>Carregando mapa...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="text-lg font-semibold text-gray-900">Legenda de Cores</h3>
+            </div>
+            <div class="card-body">
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #8BC34A;"></div>
+                        <span>Baixo (0-30)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #FFC107;"></div>
+                        <span>Moderado (31-50)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #FF5722;"></div>
+                        <span>Alto (51-70)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #D32F2F;"></div>
+                        <span>Muito Alto (71-85)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #B71C1C;"></div>
+                        <span>Extremo (86-100)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="text-lg font-semibold text-gray-900">Estatísticas</h3>
+            </div>
+            <div class="card-body">
+                <div id="map-stats" class="space-y-3">
+                    <div class="flex justify-between pb-2 border-b border-gray-200">
+                        <span class="text-gray-600">Risco Máximo:</span>
+                        <span id="stat-max" class="font-semibold text-gray-900">--</span>
+                    </div>
+                    <div class="flex justify-between pb-2 border-b border-gray-200">
+                        <span class="text-gray-600">Risco Mínimo:</span>
+                        <span id="stat-min" class="font-semibold text-gray-900">--</span>
+                    </div>
+                    <div class="flex justify-between pb-2 border-b border-gray-200">
+                        <span class="text-gray-600">Risco Médio:</span>
+                        <span id="stat-avg" class="font-semibold text-gray-900">--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Categoria Predominante:</span>
+                        <span id="stat-categoria" class="font-semibold text-gray-900">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
+
+<script>
+let map = null;
+let geoJsonLayer = null;
+let municipiosData = {};
+
+/**
+ * Mapeia categoria de risco para cor Leaflet
+ */
+function colorByRisk(risco, categoria) {
+    if (risco <= 30) return "#8BC34A";     // Verde - Baixo
+    if (risco <= 50) return "#FFC107";     // Amarelo - Moderado
+    if (risco <= 70) return "#FF5722";     // Laranja - Alto
+    if (risco <= 85) return "#D32F2F";     // Vermelho - Muito Alto
+    return "#B71C1C";                      // Vermelho Escuro - Extremo
+}
+
+/**
+ * Inicializa o mapa Leaflet
+ */
+function initMap() {
+    if (map !== null) {
+        map.remove();
+    }
+
+    // Centralizar em Pernambuco
+    map = L.map('map').setView([-8.05, -34.9], 8);
+
+    // Adicionar tile layer (OpenStreetMap)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19,
+        minZoom: 6
+    }).addTo(map);
+
+    // Carregar dados e GeoJSON
+    loadMapData();
+}
+
+/**
+ * Carrega dados de risco de /api/gold/mapa
+ */
+function loadMapData() {
+    fetch('/dashboard/mapa/dados')
+        .then(res => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+        })
+        .then(data => {
+            if (!data.success || !Array.isArray(data.data)) {
+                showError('Dados de risco indisponíveis');
+                return;
+            }
+
+            // Armazenar dados indexados por id_cidade
+            data.data.forEach(m => {
+                municipiosData[m.id_cidade] = m;
+            });
+
+            console.log(`Carregado risco para ${data.data.length} municípios`);
+            document.getElementById('municipios-count').textContent = data.data.length;
+
+            // Calcular estatísticas
+            updateStatistics(data.data);
+
+            // Carregar GeoJSON
+            loadGeoJSON();
+        })
+        .catch(error => {
+            console.error('Erro ao carregar dados:', error);
+            showError('Erro ao carregar dados de risco: ' + error.message);
+        });
+}
+
+/**
+ * Carrega GeoJSON de Pernambuco
+ */
+function loadGeoJSON() {
+    fetch('/static/geo/municipios_pe.geojson')
+        .then(res => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+        })
+        .then(geojson => {
+            // Renderizar GeoJSON com cores baseadas em risco
+            if (geoJsonLayer) {
+                map.removeLayer(geoJsonLayer);
+            }
+
+            geoJsonLayer = L.geoJSON(geojson, {
+                style: (feature) => {
+                    const cityId = feature.properties.id || feature.properties.codigo;
+                    const risco = municipiosData[cityId];
+                    const color = risco ? colorByRisk(risco.risco, risco.categoria) : '#ccc';
+
+                    return {
+                        fillColor: color,
+                        weight: 1,
+                        opacity: 1,
+                        color: '#555',
+                        dashArray: '',
+                        fillOpacity: 0.75
+                    };
+                },
+                onEachFeature: (feature, layer) => {
+                    const cityId = feature.properties.id || feature.properties.codigo;
+                    const nome = feature.properties.nome || 'Desconhecido';
+                    const risco = municipiosData[cityId];
+
+                    // Criar popup
+                    let popupContent = `<div class="popup-titulo">${nome}</div>`;
+
+                    if (risco) {
+                        popupContent += `
+                            <div class="popup-row">
+                                <span class="popup-label">Risco:</span>
+                                <span class="popup-valor">${risco.risco}/100</span>
+                            </div>
+                            <div class="popup-row">
+                                <span class="popup-label">Categoria:</span>
+                                <span class="popup-valor">${risco.categoria}</span>
+                            </div>
+                            <div class="popup-row">
+                                <span class="popup-label">Temp. Máx.:</span>
+                                <span class="popup-valor">${risco.heat_index_avg}°C</span>
+                            </div>
+                            <button class="popup-botao" onclick="window.location.href='/dashboard/cidade/${risco.id_cidade}'">
+                                Ver detalhes
+                            </button>
+                        `;
+                    } else {
+                        popupContent += '<p style="color: #666;">Sem dados disponíveis</p>';
+                    }
+
+                    layer.bindPopup(popupContent);
+
+                    // Evento de clique para navegação
+                    layer.on('click', () => {
+                        if (risco && risco.id_cidade) {
+                            window.location.href = `/dashboard/cidade/${risco.id_cidade}`;
+                        }
+                    });
+
+                    // Adicionar hover
+                    layer.on('mouseover', () => {
+                        layer.setStyle({
+                            weight: 2,
+                            opacity: 1,
+                            fillOpacity: 0.9
+                        });
+                    });
+
+                    layer.on('mouseout', () => {
+                        layer.setStyle({
+                            weight: 1,
+                            opacity: 1,
+                            fillOpacity: 0.75
+                        });
+                    });
+                }
+            }).addTo(map);
+
+            console.log('GeoJSON carregado e renderizado');
+        })
+        .catch(error => {
+            console.error('Erro ao carregar GeoJSON:', error);
+            showError('Erro ao carregar GeoJSON: ' + error.message);
+        });
+}
+
+/**
+ * Atualiza estatísticas baseado em dados de risco
+ */
+function updateStatistics(municipios) {
+    if (municipios.length === 0) {
+        return;
+    }
+
+    const riscos = municipios.map(m => m.risco);
+    const max = Math.max(...riscos);
+    const min = Math.min(...riscos);
+    const avg = Math.round(riscos.reduce((a, b) => a + b, 0) / riscos.length);
+
+    // Categoria predominante
+    const categorias = {};
+    municipios.forEach(m => {
+        categorias[m.categoria] = (categorias[m.categoria] || 0) + 1;
+    });
+    const categoriaPrincipal = Object.keys(categorias).reduce((a, b) =>
+        categorias[a] > categorias[b] ? a : b
+    );
+
+    document.getElementById('stat-max').textContent = `${max}/100`;
+    document.getElementById('stat-min').textContent = `${min}/100`;
+    document.getElementById('stat-avg').textContent = `${avg}/100`;
+    document.getElementById('stat-categoria').textContent = categoriaPrincipal;
+}
+
+/**
+ * Mostra mensagem de erro
+ */
+function showError(message) {
+    const container = document.getElementById('map-error-container');
+    container.innerHTML = `<div class="map-error">${message}</div>`;
+}
+
+/**
+ * Reseta o mapa para posição inicial
+ */
+function resetMap() {
+    if (map) {
+        map.setView([-8.05, -34.9], 8);
+    }
+}
+
+/**
+ * Inicializa ao carregar a página
+ */
+document.addEventListener('DOMContentLoaded', initMap);
+</script>
+{% endblock %}

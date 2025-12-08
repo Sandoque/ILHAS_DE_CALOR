@@ -11,6 +11,7 @@ def register_blueprints(app: Flask) -> None:
     from .api_analytics import bp as analytics_bp
     from .api_gold import api_gold as gold_bp
     from .dashboard import dashboard_bp
+    from .dashboard_map import map_bp
     from .main import bp as main_bp
 
     app.register_blueprint(climate_bp)
@@ -19,6 +20,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(analytics_bp)
     app.register_blueprint(gold_bp)
     app.register_blueprint(dashboard_bp)
+    app.register_blueprint(map_bp)
     app.register_blueprint(main_bp)
 
 
