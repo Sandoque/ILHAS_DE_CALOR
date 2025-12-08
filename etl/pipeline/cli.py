@@ -7,6 +7,7 @@ Usage:
     python -m etl.pipeline.cli run-inmet --year 2024 2023  # Run specific years
     python -m etl.pipeline.cli run-inc --year 2024   # Run incremental ETL
     python -m etl.pipeline.cli run-mapbiomas         # Run MapBiomas land cover ETL
+    python -m etl.pipeline.cli run-gold              # Generate GOLD metrics from bronze
 """
 from __future__ import annotations
 
@@ -61,6 +62,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run MapBiomas land cover ETL (aux_cobertura_vegetal_pe)",
     )
 
+    # GOLD pipeline
+    subparsers.add_parser(
+        "run-gold",
+        help="Generate GOLD daily metrics from bronze_clima_pe_horario",
+    )
+
     return parser
 
 
@@ -89,6 +96,39 @@ def main() -> None:
         from etl.mapbiomas.run_mapbiomas_pipeline import run_mapbiomas
 
         run_mapbiomas()
+    
+    elif args.command == "run-gold":
+        logger.info("Running GOLD aggregation pipeline")
+        try:
+            import pandas as pd
+            from sqlalchemy import create_engine
+            
+            from etl.transform.aggregate_gold import aggregate_daily
+            from etl.load.load_gold import load_gold
+            from etl.utils.constants import DATABASE_URL
+            
+            if not DATABASE_URL:
+                logger.error("DATABASE_URL environment variable not set")
+                return
+            
+            logger.info("Reading bronze_clima_pe_horario from database...")
+            engine = create_engine(DATABASE_URL)
+            df_bronze = pd.read_sql("SELECT * FROM bronze_clima_pe_horario ORDER BY data_hora_utc", engine)
+            
+            if df_bronze.empty:
+                logger.warning("No data found in bronze_clima_pe_horario")
+                return
+            
+            logger.info("Aggregating %s bronze records to GOLD daily metrics", len(df_bronze))
+            df_gold = aggregate_daily(df_bronze)
+            
+            logger.info("Loading %s GOLD records into database", len(df_gold))
+            load_gold(df_gold, engine=engine)
+            
+            logger.info("GOLD pipeline completed successfully!")
+        except Exception as e:
+            logger.exception("GOLD pipeline failed: %s", e)
+            raise
     
     else:  # pragma: no cover
         parser.print_help()

@@ -80,7 +80,39 @@ CREATE INDEX IF NOT EXISTS idx_bronze_ano_mes_estacao
     ON bronze_clima_pe_horario (ano, mes, id_estacao);
 
 -- ============================================================================
--- GOLD: MÉTRICAS DIÁRIAS POR CIDADE
+-- GOLD: MÉTRICAS DIÁRIAS POR CIDADE (agregadas do bronze)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS gold_clima_pe_diario (
+    id                      SERIAL PRIMARY KEY,
+    id_cidade               INTEGER NOT NULL REFERENCES dim_cidade_pe(id_cidade),
+    data                    DATE NOT NULL,
+
+    temp_media              NUMERIC(5,2),
+    temp_max                NUMERIC(5,2),
+    temp_min                NUMERIC(5,2),
+    umidade_media           NUMERIC(5,2),
+    precipitacao_total      NUMERIC(10,2),
+    radiacao_total          NUMERIC(12,2),
+    amplitude_termica       NUMERIC(5,2),
+    aparente_media          NUMERIC(5,2),
+    heat_index_max          NUMERIC(5,2),
+    rolling_heat_7d         NUMERIC(5,2),
+    risco_calor             VARCHAR(20),
+
+    criado_em               TIMESTAMPTZ DEFAULT NOW(),
+
+    UNIQUE (id_cidade, data)
+);
+
+CREATE INDEX IF NOT EXISTS idx_gold_diario_cidade_data
+    ON gold_clima_pe_diario (id_cidade, data);
+
+CREATE INDEX IF NOT EXISTS idx_gold_diario_risco
+    ON gold_clima_pe_diario (risco_calor, data);
+
+-- ============================================================================
+-- GOLD: MÉTRICAS DIÁRIAS POR CIDADE (tabela legada, anterior)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS gold_clima_diario_cidade (

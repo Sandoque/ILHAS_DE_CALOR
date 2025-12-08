@@ -2,6 +2,7 @@
 from .climate import ClimateHourly, ClimateHourlySchema
 from .stations import Station, StationSchema
 from .metrics import DailyMetrics, DailyMetricsSchema
+from .gold import GoldClimaPeDiario
 
 __all__ = [
     "ClimateHourly",
@@ -10,4 +11,5 @@ __all__ = [
     "StationSchema",
     "DailyMetrics",
     "DailyMetricsSchema",
+    "GoldClimaPeDiario",
 ]
