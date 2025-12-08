@@ -11,8 +11,7 @@ services:
       - "5433:5432"
     volumes:
       - pgdata_ilhas:/var/lib/postgresql/data
-      - ./db:/app/db
-      - ./postgres-init:/docker-entrypoint-initdb.d
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
 
   web:
     build:
