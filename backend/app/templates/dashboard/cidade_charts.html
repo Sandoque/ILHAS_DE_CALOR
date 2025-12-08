@@ -1,167 +1,79 @@
-<!-- Partial template for city charts (loaded via HTMX) -->
+<!-- Partial template para gráficos HTMX -->
+<div id="charts-container" class="space-y-6" data-cidade-id="{{ cidade_id }}" data-range="{{ range }}">
+    
+    <!-- Gráfico de Temperatura -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="text-lg font-semibold text-gray-900">Série Temporal de Temperatura</h3>
+            <p class="text-sm text-gray-600">Mínima, média e máxima diária</p>
+        </div>
+        <div class="card-body">
+            <div id="chart-temperatura" class="chart-container"></div>
+        </div>
+    </div>
 
-<!-- Gráfico 1: Série Temporal de Temperatura -->
-<div class="card">
-    <div class="card-header">
-        <h3 class="text-lg font-semibold text-gray-900">Temperatura (℃)</h3>
-        <p class="text-sm text-gray-600">Séries de temperatura: mínima, média e máxima</p>
+    <!-- Gráfico de Risco -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="text-lg font-semibold text-gray-900">Distribuição de Risco de Calor</h3>
+            <p class="text-sm text-gray-600">Contagem de dias por nível de risco</p>
+        </div>
+        <div class="card-body">
+            <div id="chart-risco" class="chart-container"></div>
+        </div>
     </div>
-    <div class="card-body">
-        <div id="chart-temperatura" class="chart-container"></div>
-    </div>
-</div>
 
-<!-- Gráfico 2: Índice de Risco de Calor -->
-<div class="card mt-6">
-    <div class="card-header">
-        <h3 class="text-lg font-semibold text-gray-900">Índice de Risco de Calor</h3>
-        <p class="text-sm text-gray-600">Classificação diária do risco</p>
+    <!-- Heatmap -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="text-lg font-semibold text-gray-900">Heatmap Térmico (últimos 7 dias)</h3>
+            <p class="text-sm text-gray-600">Intensidade de temperatura por dia</p>
+        </div>
+        <div class="card-body">
+            <div id="chart-heatmap" class="chart-container"></div>
+        </div>
     </div>
-    <div class="card-body">
-        <div id="chart-risco" class="chart-container"></div>
-    </div>
-</div>
 
-<!-- Gráfico 3: Heatmap dos Últimos 7 Dias -->
-<div class="card mt-6">
-    <div class="card-header">
-        <h3 class="text-lg font-semibold text-gray-900">Heatmap Térmico (7 dias)</h3>
-        <p class="text-sm text-gray-600">Intensidade de calor por dia</p>
-    </div>
-    <div class="card-body">
-        <div id="chart-heatmap" class="chart-container"></div>
-    </div>
 </div>
 
 <script>
-const CIDADE_ID = {{ cidade_id }};
-const RANGE = {{ range }};
+(function() {
+    /**
+     * IIFE para carregamento de gráficos via DashboardCharts
+     * Extrai cidadeId e range dos atributos data-* do container
+     */
+    function renderCharts() {
+        const container = document.getElementById('charts-container');
+        if (!container) return;
 
-document.addEventListener('DOMContentLoaded', () => {
-    initializeCharts(CIDADE_ID, RANGE);
-});
+        const cidadeId = container.getAttribute('data-cidade-id');
+        const range = parseInt(container.getAttribute('data-range') || 7, 10);
 
-function initializeCharts(cidadeId, range) {
-    loadTemperaturaChart(cidadeId, range);
-    loadRiscoChart(cidadeId, range);
-    loadHeatmapChart(cidadeId);
-}
+        if (!cidadeId) {
+            console.error('cidadeId não encontrado no container');
+            return;
+        }
 
-function loadTemperaturaChart(cidadeId, range) {
-    const url = `/api/gold/${cidadeId}/serie?limit=${range * 30}`;
+        // Carrega 3 gráficos em paralelo usando o módulo DashboardCharts
+        DashboardCharts.loadMultipleCharts([
+            { domId: 'chart-temperatura', type: 'temperatura', cidadeId, range },
+            { domId: 'chart-risco', type: 'risco', cidadeId, range },
+            { domId: 'chart-heatmap', type: 'heatmap', cidadeId }
+        ]).then(() => {
+            console.log('Gráficos renderizados com sucesso');
+        }).catch(error => {
+            console.error('Erro ao renderizar gráficos:', error);
+        });
+    }
+
+    // Executar quando HTMX carrega este partial
+    document.addEventListener('htmx:afterSwap', renderCharts);
     
-    fetch(url)
-        .then(res => res.json())
-        .then(data => {
-            if (data.success && data.data.data) {
-                const series = data.data.data;
-                const dates = series.map(s => s.data);
-                const tempMin = series.map(s => s.temp_min || null);
-                const tempMedia = series.map(s => s.temp_media || null);
-                const tempMax = series.map(s => s.temp_max || null);
-                
-                const option = {
-                    tooltip: { trigger: 'axis' },
-                    legend: { data: ['Mínima', 'Média', 'Máxima'] },
-                    xAxis: { type: 'category', data: dates },
-                    yAxis: { type: 'value', name: '℃' },
-                    series: [
-                        { name: 'Mínima', data: tempMin, type: 'line', smooth: true, lineStyle: { color: '#3b82f6' } },
-                        { name: 'Média', data: tempMedia, type: 'line', smooth: true, lineStyle: { color: '#f97316' } },
-                        { name: 'Máxima', data: tempMax, type: 'line', smooth: true, lineStyle: { color: '#ef4444' } }
-                    ]
-                };
-                
-                const chart = echarts.init(document.getElementById('chart-temperatura'));
-                chart.setOption(option);
-                window.addEventListener('resize', () => chart.resize());
-            }
-        })
-        .catch(err => console.error('Erro ao carregar gráfico de temperatura:', err));
-}
-
-function loadRiscoChart(cidadeId, range) {
-    const url = `/api/gold/${cidadeId}/serie?limit=${range * 30}`;
-    
-    fetch(url)
-        .then(res => res.json())
-        .then(data => {
-            if (data.success && data.data.data) {
-                const series = data.data.data;
-                const dates = series.map(s => s.data);
-                const risks = series.map(s => {
-                    const risco = s.risco_calor || 'Desconhecido';
-                    const colors = {
-                        'Baixo': '#10b981',
-                        'Moderado': '#3b82f6',
-                        'Alto': '#eab308',
-                        'Muito Alto': '#f97316',
-                        'Extremo': '#ef4444'
-                    };
-                    return { value: risco, itemStyle: { color: colors[risco] || '#999' } };
-                });
-                
-                const option = {
-                    tooltip: { trigger: 'axis' },
-                    xAxis: { type: 'category', data: dates },
-                    yAxis: { type: 'value' },
-                    series: [
-                        { 
-                            name: 'Risco',
-                            data: risks.map((r, i) => ({ value: i, name: r.value, itemStyle: r.itemStyle })),
-                            type: 'bar',
-                            itemStyle: { color: (params) => risks[params.dataIndex].itemStyle.color }
-                        }
-                    ]
-                };
-                
-                const chart = echarts.init(document.getElementById('chart-risco'));
-                chart.setOption(option);
-                window.addEventListener('resize', () => chart.resize());
-            }
-        })
-        .catch(err => console.error('Erro ao carregar gráfico de risco:', err));
-}
-
-function loadHeatmapChart(cidadeId) {
-    const url = `/api/gold/${cidadeId}/diario`;
-    
-    fetch(url)
-        .then(res => res.json())
-        .then(data => {
-            if (data.success && data.data) {
-                const records = data.data.slice(0, 7);
-                const heatmapData = [];
-                
-                records.forEach((r, dayIdx) => {
-                    const tempMin = r.temp_min || 0;
-                    const tempMedia = r.temp_media || 0;
-                    const tempMax = r.temp_max || 0;
-                    
-                    heatmapData.push([dayIdx, 0, tempMin]);
-                    heatmapData.push([dayIdx, 1, tempMedia]);
-                    heatmapData.push([dayIdx, 2, tempMax]);
-                });
-                
-                const option = {
-                    tooltip: { trigger: 'item' },
-                    xAxis: { type: 'category', data: records.map(r => r.data) },
-                    yAxis: { type: 'category', data: ['Mínima', 'Média', 'Máxima'] },
-                    visualMap: { min: 20, max: 40, inRange: { color: ['#3b82f6', '#eab308', '#ef4444'] } },
-                    series: [
-                        {
-                            data: heatmapData,
-                            type: 'heatmap',
-                            label: { show: true }
-                        }
-                    ]
-                };
-                
-                const chart = echarts.init(document.getElementById('chart-heatmap'));
-                chart.setOption(option);
-                window.addEventListener('resize', () => chart.resize());
-            }
-        })
-        .catch(err => console.error('Erro ao carregar heatmap:', err));
-}
+    // Executar na primeira carga se não for HTMX
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', renderCharts);
+    } else {
+        renderCharts();
+    }
+})();
 </script>

@@ -96,39 +96,65 @@ document.addEventListener('DOMContentLoaded', () => {
     loadCharts();
 });
 
+/**
+ * Carrega dados resumidos da cidade usando /api/gold/<id>/resumo
+ * Popula: nome, risco atual, métricas térmicas, tendência
+ */
 function loadCityData() {
-    fetch(`/api/gold/${CIDADE_ID}/resumo`)
-        .then(res => res.json())
+    DashboardCharts.fetchData(`/api/gold/${CIDADE_ID}/resumo`)
         .then(data => {
-            if (data.success) {
-                const d = data.data;
-                document.getElementById('cidade-nome').textContent = d.cidade;
-                document.getElementById('risco-valor').textContent = d.risco;
+            if (data) {
+                document.getElementById('cidade-nome').textContent = data.nome_cidade || 'Cidade';
+                document.getElementById('risco-valor').textContent = data.risco_calor || '--';
                 
+                // Aplicar classe CSS ao badge de risco
                 const badge = document.getElementById('risco-badge-large');
-                badge.className = `text-right risk-${d.risco.toLowerCase().replace(/\\s+/g, '-')}`;
+                const riskClass = `risk-${data.risco_calor.toLowerCase().replace(/\\s+/g, '-')}`;
+                badge.className = `text-right ${riskClass}`;
                 
-                document.getElementById('metric-temp-max').textContent = (d.temp_max || '--').toFixed(1);
-                document.getElementById('metric-temp-min').textContent = (d.temp_min || '--').toFixed(1);
-                document.getElementById('metric-amplitude').textContent = ((d.temp_max - d.temp_min) || '--').toFixed(1);
+                // Atualizar métricas
+                document.getElementById('metric-temp-max').textContent = 
+                    (data.temp_max ? data.temp_max.toFixed(1) : '--') + '°C';
+                document.getElementById('metric-temp-min').textContent = 
+                    (data.temp_min ? data.temp_min.toFixed(1) : '--') + '°C';
+                document.getElementById('metric-amplitude').textContent = 
+                    (data.temp_max && data.temp_min ? (data.temp_max - data.temp_min).toFixed(1) : '--') + '°C';
+                document.getElementById('metric-dias-calor').textContent = 
+                    data.dias_risco_alto_7d + ' dias';
             }
         })
         .catch(err => console.error('Erro ao carregar dados da cidade:', err));
 }
 
+/**
+ * Carrega gráficos via HTMX (partial cidade_charts.html)
+ * O servidor detecta HX-Request header e retorna apenas o partial
+ */
 function loadCharts() {
-    fetch(`/dashboard/cidade/${CIDADE_ID}?range=${RANGE}`)
+    const chartsContainer = document.getElementById('charts');
+    
+    // Usar HTMX para carregar o partial se disponível
+    if (htmx && typeof htmx.ajax === 'function') {
+        htmx.ajax('GET', `/dashboard/cidade/${CIDADE_ID}?range=${RANGE}`, {
+            target: chartsContainer,
+            swap: 'innerHTML'
+        });
+    } else {
+        // Fallback: fetch + manual HTML injection
+        fetch(`/dashboard/cidade/${CIDADE_ID}?range=${RANGE}`, {
+            headers: {
+                'HX-Request': 'true'
+            }
+        })
         .then(res => res.text())
         .then(html => {
-            document.getElementById('charts').innerHTML = html;
-            // Reinicialize charts após carregar novo HTML
-            setTimeout(() => {
-                if (typeof initializeCharts === 'function') {
-                    initializeCharts(CIDADE_ID, RANGE);
-                }
-            }, 100);
+            chartsContainer.innerHTML = html;
+            // HTMX evento será disparado automaticamente
+            htmx?.process?.(chartsContainer);
         })
         .catch(err => console.error('Erro ao carregar gráficos:', err));
+    }
+
 }
 </script>
 {% endblock %}

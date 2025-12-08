@@ -102,18 +102,52 @@ function setupEventListeners() {
 }
 
 function loadCidades() {
-    fetch('/api/gold/cidades')
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                populateCidadeSelect(data.data);
-                populateCidadesGrid(data.data);
+    DashboardCharts.fetchData('/api/gold/cidades')
+        .then(cidades => {
+            if (cidades && Array.isArray(cidades)) {
+                populateCidadeSelect(cidades);
+                populateCidadesGrid(cidades);
+                
+                // Carregar dados da primeira cidade
+                if (cidades.length > 0) {
+                    loadFirstCityStats(cidades[0].id_cidade);
+                }
             }
         })
         .catch(err => {
             console.error('Erro ao carregar cidades:', err);
         });
 }
+
+/**
+ * Carrega estatísticas da primeira cidade para exibir em quick stats
+ */
+function loadFirstCityStats(cidadeId) {
+    DashboardCharts.fetchData(`/api/gold/${cidadeId}/resumo`)
+        .then(data => {
+            if (data) {
+                document.getElementById('temp-hoje').textContent = 
+                    (data.temp_media ? data.temp_media.toFixed(1) : '--') + '°C';
+                document.getElementById('risco-atual').textContent = data.risco_calor || '--';
+                
+                const badge = document.getElementById('risco-badge');
+                badge.className = `mt-2 inline-block px-3 py-1 rounded-full text-sm font-semibold ${
+                    DashboardCharts.RISK_COLORS[data.risco_calor]
+                }`;
+                badge.textContent = data.risco_calor || 'Desconhecido';
+                
+                // Tendência (simplificada: baseada em dias_risco_alto_7d)
+                const diasAlto = data.dias_risco_alto_7d || 0;
+                document.getElementById('tendencia-seta').textContent = 
+                    diasAlto > 3 ? '📈' : diasAlto > 1 ? '↔' : '📉';
+                document.getElementById('tendencia-pct').textContent = `${diasAlto}/7 dias`;
+                document.getElementById('tendencia-desc').textContent = 
+                    diasAlto > 3 ? 'Aumentando' : diasAlto > 1 ? 'Estável' : 'Diminuindo';
+            }
+        })
+        .catch(err => console.error('Erro ao carregar stats:', err));
+}
+
 
 function populateCidadeSelect(cidades) {
     const select = document.getElementById('cidade-select');

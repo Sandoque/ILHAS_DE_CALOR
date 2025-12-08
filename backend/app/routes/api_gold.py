@@ -166,4 +166,154 @@ def get_time_series(cidade_id: int):
         return error(f"Failed to retrieve time series: {str(e)}", status=500)
 
 
+@api_gold.route("/cidades", methods=["GET"])
+def list_cities():
+    """
+    Get list of all cities with GOLD climate data.
+    
+    Returns:
+        {
+            "success": true,
+            "data": [
+                {
+                    "id_cidade": 1,
+                    "nome_cidade": "Recife",
+                    "uf": "PE",
+                    "codigo_ibge": "2611606"
+                },
+                ...
+            ]
+        }
+    """
+    try:
+        # Query distinct cidades from GOLD table
+        from sqlalchemy import distinct
+        
+        cidade_ids = (
+            GoldClimaPeDiario.query
+            .distinct(GoldClimaPeDiario.id_cidade)
+            .with_entities(
+                GoldClimaPeDiario.id_cidade,
+                GoldClimaPeDiario.nome_cidade,
+                GoldClimaPeDiario.uf,
+                GoldClimaPeDiario.codigo_ibge
+            )
+            .order_by(GoldClimaPeDiario.nome_cidade)
+            .all()
+        )
+        
+        if not cidade_ids:
+            return success([])
+        
+        data = [
+            {
+                "id_cidade": row[0],
+                "nome_cidade": row[1],
+                "uf": row[2],
+                "codigo_ibge": row[3]
+            }
+            for row in cidade_ids
+        ]
+        
+        return success(data)
+    
+    except Exception as e:
+        return error(f"Failed to retrieve cities: {str(e)}", status=500)
+
+
+@api_gold.route("/<int:cidade_id>/resumo", methods=["GET"])
+def get_city_summary(cidade_id: int):
+    """
+    Get summary metrics for a city (latest day + 7-day trend).
+    
+    Returns:
+        {
+            "success": true,
+            "data": {
+                "id_cidade": 1,
+                "nome_cidade": "Recife",
+                "data_atual": "2025-12-07",
+                "risco_calor": "Alto",
+                "heat_index_max": 35.2,
+                "temp_max": 32.1,
+                "temp_media": 28.5,
+                "temp_min": 24.3,
+                "umidade_media": 65.3,
+                "dias_risco_alto_7d": 4,
+                "tendencia_temp": "aumentando"
+            }
+        }
+    """
+    try:
+        # Get today's data
+        today = datetime.utcnow().date()
+        today_record = (
+            GoldClimaPeDiario.query.filter(
+                GoldClimaPeDiario.id_cidade == cidade_id,
+                GoldClimaPeDiario.data == today
+            )
+            .first()
+        )
+        
+        if not today_record:
+            # Fallback to latest available date
+            today_record = (
+                GoldClimaPeDiario.query.filter(
+                    GoldClimaPeDiario.id_cidade == cidade_id
+                )
+                .order_by(GoldClimaPeDiario.data.desc())
+                .first()
+            )
+        
+        if not today_record:
+            return error(f"No data found for city {cidade_id}", status=404)
+        
+        # Get last 7 days for trend analysis
+        start_date = today_record.data - timedelta(days=7)
+        last_7_days = (
+            GoldClimaPeDiario.query.filter(
+                GoldClimaPeDiario.id_cidade == cidade_id,
+                GoldClimaPeDiario.data >= start_date,
+                GoldClimaPeDiario.data <= today_record.data
+            )
+            .order_by(GoldClimaPeDiario.data.asc())
+            .all()
+        )
+        
+        # Calculate 7-day statistics
+        dias_risco_alto_7d = sum(
+            1 for r in last_7_days 
+            if r.risco_calor in ["Alto", "Muito Alto", "Extremo"]
+        )
+        
+        # Calculate temperature trend (compare first 3 days vs last 3 days)
+        if len(last_7_days) >= 6:
+            temp_media_first_3 = sum(r.temp_media or 0 for r in last_7_days[:3]) / 3
+            temp_media_last_3 = sum(r.temp_media or 0 for r in last_7_days[-3:]) / 3
+            tendencia = "aumentando" if temp_media_last_3 > temp_media_first_3 else "diminuindo"
+        else:
+            tendencia = "estável"
+        
+        data = {
+            "id_cidade": today_record.id_cidade,
+            "nome_cidade": today_record.nome_cidade,
+            "uf": today_record.uf,
+            "codigo_ibge": today_record.codigo_ibge,
+            "data_atual": today_record.data.isoformat(),
+            "risco_calor": today_record.risco_calor,
+            "heat_index_max": today_record.heat_index_max,
+            "temp_max": today_record.temp_max,
+            "temp_media": today_record.temp_media,
+            "temp_min": today_record.temp_min,
+            "umidade_media": today_record.umidade_media,
+            "dias_risco_alto_7d": dias_risco_alto_7d,
+            "tendencia_temp": tendencia
+        }
+        
+        return success(data)
+    
+    except Exception as e:
+        return error(f"Failed to retrieve city summary: {str(e)}", status=500)
+
+
 __all__ = ["api_gold"]
