@@ -1,0 +1,14 @@
+flask
+Flask-Cors
+Flask-SQLAlchemy
+marshmallow
+marshmallow-sqlalchemy
+flask-marshmallow
+python-dotenv
+psycopg2-binary
+SQLAlchemy
+pandas
+numpy
+pytz
+requests
+gunicorn
