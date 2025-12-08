@@ -67,6 +67,21 @@
             width: 20px;
             height: 20px;
         }
+
+        /* HTMX Loading States */
+        .htmx-settling .htmx-swapping {
+            opacity: 1;
+        }
+        
+        .htmx-swapping.htmx-settling {
+            opacity: 1;
+        }
+        
+        #charts.htmx-request {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
     </style>
     
     {% block extra_css %}{% endblock %}
