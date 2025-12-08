@@ -12,3 +12,4 @@ numpy
 pytz
 requests
 gunicorn
+openpyxl
