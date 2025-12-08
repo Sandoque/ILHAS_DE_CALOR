@@ -2,12 +2,22 @@
 Command line entrypoint for ETL module.
 
 Usage:
-    python -m etl.pipeline.cli run-full              # Run full INMET ETL for all years
-    python -m etl.pipeline.cli run-inmet             # Run full INMET ETL for standard years
-    python -m etl.pipeline.cli run-inmet --year 2024 2023  # Run specific years
-    python -m etl.pipeline.cli run-inc --year 2024   # Run incremental ETL
-    python -m etl.pipeline.cli run-mapbiomas         # Run MapBiomas land cover ETL
-    python -m etl.pipeline.cli run-gold              # Generate GOLD metrics from bronze
+    # INMET Climate Data Pipeline
+    python -m etl.pipeline.cli run-full                              # Download + Load all INMET years (1961-2024)
+    python -m etl.pipeline.cli run-inmet                             # Download + Load default years (2010-2024)
+    python -m etl.pipeline.cli run-inmet --year 2024 2023            # Download + Load specific years
+    python -m etl.pipeline.cli run-inc --year 2024                   # Load already-extracted INMET data to bronze table
+    
+    # Auxiliary Pipelines
+    python -m etl.pipeline.cli run-mapbiomas                         # Download + Load MapBiomas land cover (aux_cobertura_vegetal_pe)
+    python -m etl.pipeline.cli run-gold                              # Generate GOLD daily metrics from bronze_clima_pe_horario
+
+Pipeline Flow:
+    run-full / run-inmet → Download INMET ZIP + Extract CSVs → Load to bronze_clima_pe_horario
+    run-inc              → Load already-extracted CSVs to bronze_clima_pe_horario
+    run-gold             → Aggregate bronze (hourly) to GOLD (daily metrics)
+    
+    Use run-inc when CSV files are already extracted in data/inmet/processed/YYYY/
 """
 from __future__ import annotations
 
