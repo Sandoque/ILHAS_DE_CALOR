@@ -1,7 +1,105 @@
+### Python
 venv/
+env/
+.venv/
+ENV/
 __pycache__/
-.env
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+### Virtual environments
+venv/
+env/
+.venv
+
+### IDE & Editors
 .vscode/
-*.pyc
-*.XLSX
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+### Environment & Secrets
+.env
+.env.local
+.env.*.local
+.env.production
+secrets.yaml
+
+### Data & Large Files
+data/inmet/raw/
+data/inmet/processed/
+data/mapbiomas/raw/
+data/mapbiomas/processed/
+*.zip
+*.xlsx
+*.csv
 *.CSV
+*.XLSX
+*.parquet
+*.parquet.snappy
+
+### Database
+*.db
+*.sqlite
+*.sqlite3
+pgdata_ilhas/
+
+### Logs & Temporary
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+
+### OS
+.DS_Store
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+### Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+### Docker
+docker-compose.override.yml
+.dockerignore
+
+### Node (if using frontend tools)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+### Poetry (if using)
+poetry.lock
+
+### Misc
+.ipynb_checkpoints/
+*.ipynb
+.jupyter/
