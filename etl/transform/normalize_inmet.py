@@ -113,16 +113,21 @@ OPTIONAL_NUMERIC_FIELDS: List[str] = [
 
 
 def _read_csv(csv_path: Path) -> pd.DataFrame:
-    """Read CSV trying common delimiters."""
-    try:
-        return pd.read_csv(csv_path, sep=";", encoding="utf-8", low_memory=False)
-    except Exception:
-        logger.debug("Retrying %s with comma separator", csv_path)
-        try:
-            return pd.read_csv(csv_path, sep=",", encoding="utf-8", low_memory=False)
-        except Exception:
-            logger.debug("Retrying %s with tab separator", csv_path)
-            return pd.read_csv(csv_path, sep="\t", encoding="utf-8", low_memory=False)
+    """Read CSV trying common delimiters and encodings."""
+    # INMET CSVs use ISO-8859-1 (Latin-1) encoding
+    encodings = ["iso-8859-1", "utf-8", "cp1252"]
+    delimiters = [";", ",", "\t"]
+    
+    for encoding in encodings:
+        for delimiter in delimiters:
+            try:
+                return pd.read_csv(csv_path, sep=delimiter, encoding=encoding, low_memory=False)
+            except Exception:
+                continue
+    
+    # Last resort
+    logger.error("Could not read %s with any encoding/delimiter combination", csv_path)
+    raise ValueError(f"Unable to read CSV: {csv_path}")
 
 
 def _parse_datetime(df: pd.DataFrame) -> pd.Series:

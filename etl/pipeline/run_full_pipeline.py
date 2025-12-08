@@ -12,6 +12,7 @@ from etl.ingest.download_inmet import download_years
 from etl.ingest.extract_zip import extract_year_zip, list_extracted_csvs
 from etl.ingest.list_available_sources import expected_years
 from etl.load.load_to_postgres import load_dataframe
+from etl.load.populate_dim_estacao import populate_dim_estacao
 from etl.load.validate_schema import validate_columns
 from etl.transform.compute_heat_metrics import add_heat_metrics
 from etl.transform.geospatial_enrichment import enrich_with_geospatial
@@ -40,6 +41,10 @@ def run_full(years: Optional[List[int]] = None) -> None:
     logger.info("Running full pipeline for years: %s", year_list)
 
     with time_block("full_pipeline"):
+        # Ensure dimension tables are populated before loading data
+        logger.info("Populating dimension tables...")
+        populate_dim_estacao()
+        
         archives = download_years(year_list)
         for zip_path in archives:
             try:

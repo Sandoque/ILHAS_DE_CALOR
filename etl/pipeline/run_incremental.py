@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from etl.ingest.list_available_sources import expected_years
 from etl.load.load_to_postgres import existing_years
-from etl.pipeline.run_full_pipeline import run_full
+from etl.pipeline.load_processed_years import load_processed_years
 from etl.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -27,7 +27,7 @@ def run_incremental(target_year: Optional[int] = None) -> None:
     if not years:
         logger.info("No missing years detected; nothing to do.")
         return
-    run_full(years)
+    load_processed_years(years)
 
 
 if __name__ == "__main__":  # pragma: no cover

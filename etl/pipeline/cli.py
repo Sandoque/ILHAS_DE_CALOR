@@ -78,6 +78,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Generate GOLD daily metrics from bronze_clima_pe_horario",
     )
 
+    # Populate dimension tables
+    subparsers.add_parser(
+        "populate-stations",
+        help="Populate dim_estacao dimension table from extracted INMET CSV files",
+    )
+
     return parser
 
 
@@ -139,6 +145,13 @@ def main() -> None:
         except Exception as e:
             logger.exception("GOLD pipeline failed: %s", e)
             raise
+    
+    elif args.command == "populate-stations":
+        logger.info("Populating dim_estacao from extracted INMET CSV files")
+        from etl.load.populate_dim_estacao import populate_dim_estacao
+        
+        count = populate_dim_estacao()
+        logger.info("Populated %d stations into dim_estacao", count)
     
     else:  # pragma: no cover
         parser.print_help()

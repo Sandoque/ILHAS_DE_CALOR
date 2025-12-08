@@ -187,23 +187,3 @@ def existing_years(engine: Optional[Engine] = None) -> set[int]:
 
 
 __all__ = ["load_dataframe", "existing_years"]
-
-
-def existing_years(engine: Optional[Engine] = None) -> set[int]:
-    """Return a set of years already present in the target table."""
-    eng = engine or _get_engine()
-    query = text(
-        f"SELECT DISTINCT EXTRACT(YEAR FROM date) AS year FROM {TARGET_SCHEMA}.{TARGET_TABLE}"
-    )
-    try:
-        with eng.connect() as conn:
-            result = conn.execute(query)
-            years = {int(row[0]) for row in result if row[0] is not None}
-            logger.info("Found %s years already loaded", len(years))
-            return years
-    except Exception:
-        logger.exception("Could not fetch existing years from database")
-        return set()
-
-
-__all__ = ["load_dataframe", "existing_years"]
