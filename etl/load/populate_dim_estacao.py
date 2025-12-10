@@ -26,6 +26,19 @@ def _get_engine(database_url: Optional[str] = None) -> Engine:
     return create_engine(url)
 
 
+def _get_city_map(engine: Engine) -> dict[str, int]:
+    """
+    Map uppercase city name -> id_cidade from dim_cidade_pe.
+    """
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT UPPER(nome_cidade), id_cidade FROM dim_cidade_pe"))
+            return {row[0]: row[1] for row in result}
+    except Exception:
+        logger.warning("Could not load city map from dim_cidade_pe")
+        return {}
+
+
 def _parse_float_br(value: Optional[str]) -> Optional[float]:
     """Parse Brazilian-style float (uses comma as decimal separator)."""
     if not value:
@@ -56,7 +69,13 @@ def _extract_stations_from_csvs(data_dir: Optional[Path] = None) -> pd.DataFrame
         logger.info("Processing stations from %s", year_dir.name)
         
         # Read all CSV files in the year directory - focus on NE/PE files
-        for csv_file in year_dir.glob("INMET_*PE_*.CSV"):
+        for csv_file in (
+            p
+            for p in year_dir.rglob("*")
+            if p.is_file()
+            and p.suffix.lower() == ".csv"
+            and "_PE_" in p.name.upper()
+        ):
             try:
                 # Read header rows to get station metadata
                 # INMET CSVs have metadata in the first 8 rows (ends before "Data;Hora UTC;...")
@@ -86,6 +105,7 @@ def _extract_stations_from_csvs(data_dir: Optional[Path] = None) -> pd.DataFrame
                     stations_list.append({
                         "codigo_estacao": station_code.strip(),
                         "nome_estacao": station_name.strip(),
+                        "municipio": station_name.strip(),
                         "uf": uf.strip(),
                         "latitude": _parse_float_br(latitude),
                         "longitude": _parse_float_br(longitude),
@@ -123,14 +143,17 @@ def _insert_stations_into_db(df_stations: pd.DataFrame, engine: Engine) -> int:
         return 0
     
     try:
+        city_map = _get_city_map(engine)
         # Insert into dim_estacao using ON CONFLICT to handle duplicates
         with engine.connect() as conn:
             # Use raw SQL with ON CONFLICT DO NOTHING to avoid duplicates
             insert_sql = text("""
-                INSERT INTO dim_estacao (codigo_estacao, nome_estacao, uf, latitude, longitude, altitude_m)
-                VALUES (:codigo_estacao, :nome_estacao, :uf, :latitude, :longitude, :altitude_m)
+                INSERT INTO dim_estacao (codigo_estacao, nome_estacao, uf, municipio, id_cidade, latitude, longitude, altitude_m)
+                VALUES (:codigo_estacao, :nome_estacao, :uf, :municipio, :id_cidade, :latitude, :longitude, :altitude_m)
                 ON CONFLICT (codigo_estacao) DO UPDATE
                 SET nome_estacao = EXCLUDED.nome_estacao,
+                    municipio = COALESCE(dim_estacao.municipio, EXCLUDED.municipio),
+                    id_cidade = COALESCE(dim_estacao.id_cidade, EXCLUDED.id_cidade),
                     latitude = COALESCE(dim_estacao.latitude, EXCLUDED.latitude),
                     longitude = COALESCE(dim_estacao.longitude, EXCLUDED.longitude),
                     altitude_m = COALESCE(dim_estacao.altitude_m, EXCLUDED.altitude_m)
@@ -139,10 +162,14 @@ def _insert_stations_into_db(df_stations: pd.DataFrame, engine: Engine) -> int:
             count = 0
             for _, row in df_stations.iterrows():
                 try:
+                    city_key = str(row["municipio"]).strip().upper()
+                    id_cidade = city_map.get(city_key)
                     conn.execute(insert_sql, {
                         "codigo_estacao": row["codigo_estacao"],
                         "nome_estacao": row["nome_estacao"],
                         "uf": row.get("uf", "PE"),
+                        "municipio": row.get("municipio"),
+                        "id_cidade": id_cidade,
                         "latitude": row.get("latitude"),
                         "longitude": row.get("longitude"),
                         "altitude_m": row.get("altitude_m"),
@@ -153,6 +180,18 @@ def _insert_stations_into_db(df_stations: pd.DataFrame, engine: Engine) -> int:
                     continue
             
             conn.commit()
+
+            # Fallback: if no city match, set id_cidade = id_estacao to keep non-null
+            try:
+                conn.execute(text("""
+                    UPDATE dim_estacao
+                    SET id_cidade = id_estacao
+                    WHERE id_cidade IS NULL AND uf = 'PE'
+                """))
+                conn.commit()
+            except Exception:
+                logger.warning("Failed to backfill id_cidade with id_estacao")
+            
             logger.info("Inserted %d stations into dim_estacao", count)
             return count
     

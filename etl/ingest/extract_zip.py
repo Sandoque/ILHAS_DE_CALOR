@@ -28,7 +28,11 @@ def extract_year_zip(zip_path: Path) -> Path:
 
 def list_extracted_csvs(year_dir: Path) -> List[Path]:
     """List CSV files inside an extracted year directory."""
-    return [p for p in year_dir.rglob("*.csv")]
+    return [
+        p
+        for p in year_dir.rglob("*")
+        if p.is_file() and p.suffix.lower() == ".csv"
+    ]
 
 
 __all__ = ["extract_year_zip", "list_extracted_csvs"]

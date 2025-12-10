@@ -125,9 +125,18 @@ def aggregate_daily(df_bronze: pd.DataFrame) -> pd.DataFrame:
         "rolling_heat_7d",
     ]
     
+    # Replace common sentinel values
+    df.replace({-9999: pd.NA, -9999.0: pd.NA, -99999: pd.NA, -99999.0: pd.NA}, inplace=True)
+
     for col in numeric_cols:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
+            # Drop gross outliers to protect DB precision (abs < 1000)
+            df[col] = df[col].where(df[col].abs() < 1000)
+            if col in {"precipitacao", "radiacao", "umidade"}:
+                df[col] = df[col].where(df[col] >= 0)
+            if col == "umidade":
+                df[col] = df[col].where(df[col] <= 100)
     
     # Aggregate by id_cidade + data
     agg_dict = {
@@ -171,6 +180,21 @@ def aggregate_daily(df_bronze: pd.DataFrame) -> pd.DataFrame:
         gold_df["risco_calor"] = gold_df["heat_index_max"].apply(classify_heat_risk)
     else:
         gold_df["risco_calor"] = "Desconhecido"
+
+    # Final sanity checks against schema constraints
+    limits_5_2 = ["temp_media", "temp_max", "temp_min", "umidade_media", "amplitude_termica", "aparente_media", "heat_index_max", "rolling_heat_7d"]
+    for col in limits_5_2:
+        if col in gold_df.columns:
+            gold_df[col] = pd.to_numeric(gold_df[col], errors="coerce")
+            gold_df[col] = gold_df[col].where(gold_df[col].abs() < 1000)
+            if col == "umidade_media":
+                gold_df[col] = gold_df[col].where((gold_df[col] >= 0) & (gold_df[col] <= 100))
+    if "precipitacao_total" in gold_df.columns:
+        gold_df["precipitacao_total"] = pd.to_numeric(gold_df["precipitacao_total"], errors="coerce")
+        gold_df["precipitacao_total"] = gold_df["precipitacao_total"].where(gold_df["precipitacao_total"] >= 0)
+    if "radiacao_total" in gold_df.columns:
+        gold_df["radiacao_total"] = pd.to_numeric(gold_df["radiacao_total"], errors="coerce")
+        gold_df["radiacao_total"] = gold_df["radiacao_total"].where(gold_df["radiacao_total"] >= 0)
     
     # Ensure all expected columns exist
     expected_cols = [

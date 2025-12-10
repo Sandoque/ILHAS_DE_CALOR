@@ -25,6 +25,10 @@ logger = get_logger(__name__)
 def _process_csv(csv_path: Path) -> Optional[pd.DataFrame]:
     try:
         df = normalize_csv(csv_path)
+        # Skip if no PE data (normalization returns empty for non-PE)
+        if df.empty:
+            logger.info("Skipped %s (no PE data)", csv_path.name)
+            return None
         df = add_heat_metrics(df)
         df = enrich_with_geospatial(df)
         df = validate_columns(df)
@@ -62,7 +66,13 @@ def load_processed_years(years: Optional[List[int]] = None) -> None:
             logger.info("Processing CSVs from %s", year_dir)
             
             # Get all CSV files
-            csv_files = list(year_dir.glob("*.CSV"))
+            csv_files = [
+                p
+                for p in year_dir.rglob("*")
+                if p.is_file()
+                and p.suffix.lower() == ".csv"
+                and p.name.upper().startswith("INMET_NE_PE_")
+            ]
             if not csv_files:
                 logger.warning("No CSV files found in %s", year_dir)
                 continue
@@ -73,7 +83,7 @@ def load_processed_years(years: Optional[List[int]] = None) -> None:
             for csv_path in csv_files:
                 df = _process_csv(csv_path)
                 if df is not None and not df.empty:
-                    logger.debug("Loading %d rows from %s", len(df), csv_path.name)
+                    logger.info("Loaded %d rows from %s", len(df), csv_path.name)
                     load_dataframe(df)
                 else:
                     logger.debug("Skipping empty/invalid CSV: %s", csv_path.name)

@@ -51,6 +51,11 @@ def _prepare_bronze_dataframe(df: pd.DataFrame, station_map: dict[str, int]) -> 
     """Map climate data to bronze_clima_pe_horario schema."""
     bronze_df = pd.DataFrame()
     
+    # Debug: check if datetime_utc exists
+    if "datetime_utc" not in df.columns:
+        logger.error("Missing datetime_utc column. Available columns: %s", df.columns.tolist())
+        raise KeyError("datetime_utc")
+    
     # Map station codes to id_estacao
     bronze_df["id_estacao"] = df["station_code"].map(station_map)
     
@@ -101,7 +106,20 @@ def _prepare_bronze_dataframe(df: pd.DataFrame, station_map: dict[str, int]) -> 
     return bronze_df
 
 
-def load_dataframe(df: pd.DataFrame, engine: Optional[Engine] = None, chunksize: int = 5000) -> None:
+def _safe_chunksize(df: pd.DataFrame, chunksize: int) -> int:
+    """
+    Compute a safe chunksize to avoid exceeding PostgreSQL's parameter limit (~65535).
+    """
+    if df.empty:
+        return chunksize
+    col_count = len(df.columns)
+    if col_count == 0:
+        return chunksize
+    max_rows = max(1, 60000 // col_count)
+    return min(chunksize, max_rows)
+
+
+def load_dataframe(df: pd.DataFrame, engine: Optional[Engine] = None, chunksize: int = 500) -> None:
     """
     Load normalized climate data into bronze_clima_pe_horario.
     
@@ -129,7 +147,7 @@ def load_dataframe(df: pd.DataFrame, engine: Optional[Engine] = None, chunksize:
                         if_exists="append",
                         index=False,
                         method="multi",
-                        chunksize=chunksize,
+                        chunksize=_safe_chunksize(bronze_df, chunksize),
                     )
                     logger.info("Successfully loaded %s rows into bronze table", len(bronze_df))
                 return
@@ -150,7 +168,7 @@ def load_dataframe(df: pd.DataFrame, engine: Optional[Engine] = None, chunksize:
             if_exists="append",
             index=False,
             method="multi",
-            chunksize=chunksize,
+            chunksize=_safe_chunksize(df, chunksize),
         )
     except Exception:
         logger.exception("Failed to load data into both bronze and legacy tables")

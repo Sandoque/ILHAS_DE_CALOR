@@ -118,25 +118,26 @@ def load_gold(df_gold: pd.DataFrame, engine: Optional[Engine] = None) -> None:
                 # Convert batch to list of dicts for parameterized query
                 for _, row in batch.iterrows():
                     try:
-                        conn.execute(
-                            text(insert_sql),
-                            {
-                                "id_cidade": int(row["id_cidade"]),
-                                "data": row["data"],
-                                "temp_media": float(row["temp_media"]) if pd.notna(row["temp_media"]) else None,
-                                "temp_max": float(row["temp_max"]) if pd.notna(row["temp_max"]) else None,
-                                "temp_min": float(row["temp_min"]) if pd.notna(row["temp_min"]) else None,
-                                "umidade_media": float(row["umidade_media"]) if pd.notna(row["umidade_media"]) else None,
-                                "precipitacao_total": float(row["precipitacao_total"]) if pd.notna(row["precipitacao_total"]) else None,
-                                "radiacao_total": float(row["radiacao_total"]) if pd.notna(row["radiacao_total"]) else None,
-                                "amplitude_termica": float(row["amplitude_termica"]) if pd.notna(row["amplitude_termica"]) else None,
-                                "aparente_media": float(row["aparente_media"]) if pd.notna(row["aparente_media"]) else None,
-                                "heat_index_max": float(row["heat_index_max"]) if pd.notna(row["heat_index_max"]) else None,
-                                "rolling_heat_7d": float(row["rolling_heat_7d"]) if pd.notna(row["rolling_heat_7d"]) else None,
-                                "risco_calor": str(row["risco_calor"]) if pd.notna(row["risco_calor"]) else None,
-                            },
-                        )
-                        total_inserted += 1
+                        with conn.begin_nested():  # isolate failures per row
+                            conn.execute(
+                                text(insert_sql),
+                                {
+                                    "id_cidade": int(row["id_cidade"]),
+                                    "data": row["data"],
+                                    "temp_media": float(row["temp_media"]) if pd.notna(row["temp_media"]) else None,
+                                    "temp_max": float(row["temp_max"]) if pd.notna(row["temp_max"]) else None,
+                                    "temp_min": float(row["temp_min"]) if pd.notna(row["temp_min"]) else None,
+                                    "umidade_media": float(row["umidade_media"]) if pd.notna(row["umidade_media"]) else None,
+                                    "precipitacao_total": float(row["precipitacao_total"]) if pd.notna(row["precipitacao_total"]) else None,
+                                    "radiacao_total": float(row["radiacao_total"]) if pd.notna(row["radiacao_total"]) else None,
+                                    "amplitude_termica": float(row["amplitude_termica"]) if pd.notna(row["amplitude_termica"]) else None,
+                                    "aparente_media": float(row["aparente_media"]) if pd.notna(row["aparente_media"]) else None,
+                                    "heat_index_max": float(row["heat_index_max"]) if pd.notna(row["heat_index_max"]) else None,
+                                    "rolling_heat_7d": float(row["rolling_heat_7d"]) if pd.notna(row["rolling_heat_7d"]) else None,
+                                    "risco_calor": str(row["risco_calor"]) if pd.notna(row["risco_calor"]) else None,
+                                },
+                            )
+                            total_inserted += 1
                     except Exception as e:
                         logger.error("Error inserting row for id_cidade=%s, data=%s: %s", row["id_cidade"], row["data"], e)
                         continue

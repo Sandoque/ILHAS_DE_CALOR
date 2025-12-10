@@ -38,6 +38,8 @@ CANONICAL_COLUMNS: Final[List[str]] = [
     "latitude",
     "longitude",
     "altitude",
+    "datetime_utc",
+    "datetime_local",
     "apparent_temperature",
     "heat_index",
     "thermal_amplitude",
